@@ -148,7 +148,7 @@ RUN set -eux; \
 	; \
 	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
 	\
-	cp /var/lib/apache2/mod_jk.so /usr/local/apache2/modules
+	cp /var/lib/apache2/mod_jk.so /usr/local/apache2/modules; \
 	\
 # smoke test
 	httpd -v
