@@ -150,7 +150,7 @@ RUN set -eux; \
 
 COPY httpd-foreground /usr/local/bin/
 COPY mod_jk.so /usr/local/apache2/modules/
-
+RUN chmod +x /usr/local/apache2/modules/mod_jk.so
 EXPOSE 80
 CMD ["httpd-foreground"]
 
