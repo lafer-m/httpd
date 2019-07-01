@@ -1,13 +1,7 @@
-FROM alpine:3.10
+FROM debian:stretch-slim
 
-# ensure www-data user exists
-RUN set -x \
-	&& addgroup -g 82 -S www-data \
-	&& adduser -u 82 -D -S -G www-data www-data
-# 82 is the standard uid/gid for "www-data" in Alpine
-# https://git.alpinelinux.org/cgit/aports/tree/main/apache2/apache2.pre-install?h=v3.8.1
-# https://git.alpinelinux.org/cgit/aports/tree/main/lighttpd/lighttpd.pre-install?h=v3.8.1
-# https://git.alpinelinux.org/cgit/aports/tree/main/nginx/nginx.pre-install?h=v3.8.1
+# add our user and group first to make sure their IDs get assigned consistently, regardless of whatever dependencies get added
+#RUN groupadd -r www-data && useradd -r --create-home -g www-data www-data
 
 ENV HTTPD_PREFIX /usr/local/apache2
 ENV PATH $HTTPD_PREFIX/bin:$PATH
@@ -15,12 +9,22 @@ RUN mkdir -p "$HTTPD_PREFIX" \
 	&& chown www-data:www-data "$HTTPD_PREFIX"
 WORKDIR $HTTPD_PREFIX
 
+# install httpd runtime dependencies
+# https://httpd.apache.org/docs/2.4/install.html#requirements
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		libapr1-dev \
+		libaprutil1-dev \
+		libaprutil1-ldap \
+	; \
+	rm -rf /var/lib/apt/lists/*
+
 ENV HTTPD_VERSION 2.4.39
 ENV HTTPD_SHA256 b4ca9d05773aa59b54d66cd8f4744b945289f084d3be17d7981d1783a5decfa2
 
 # https://httpd.apache.org/security/vulnerabilities_24.html
 ENV HTTPD_PATCHES=""
-ENV CFLAGS="-DBIG_SECURITY_HOLE"
 
 ENV APACHE_DIST_URLS \
 # https://issues.apache.org/jira/browse/INFRA-8753?focusedCommentId=14735394#comment-14735394
@@ -33,38 +37,33 @@ ENV APACHE_DIST_URLS \
 # see https://httpd.apache.org/docs/2.4/install.html#requirements
 RUN set -eux; \
 	\
-	runDeps=' \
-		apr-dev \
-		apr-util-dev \
-		apr-util-ldap \
-		perl \
-	'; \
-	apk add --no-cache --virtual .build-deps \
-		$runDeps \
+	# libbrotli is only in backports: https://packages.debian.org/stretch-backports/libbrotli-dev
+	echo 'deb http://deb.debian.org/debian stretch-backports main' > /etc/apt/sources.list.d/stretch-backports.list; \
+	# mod_http2 mod_lua mod_proxy_html mod_xml2enc
+	# https://anonscm.debian.org/cgit/pkg-apache/apache2.git/tree/debian/control?id=adb6f181257af28ee67af15fc49d2699a0080d4c
+	savedAptMark="$(apt-mark showmanual)"; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		bzip2 \
 		ca-certificates \
-		coreutils \
-		dpkg-dev dpkg \
+		dirmngr \
+		dpkg-dev \
 		gcc \
 		gnupg \
-		libc-dev \
-		# mod_md
-		curl-dev \
-		jansson-dev \
-		# mod_proxy_html mod_xml2enc
+		libbrotli-dev \
+		libcurl4-openssl-dev \
+		libjansson-dev \
+		liblua5.2-dev \
+		libnghttp2-dev \
+		libpcre3-dev \
+		libssl-dev \
 		libxml2-dev \
-		# mod_lua
-		lua-dev \
 		make \
-		# mod_http2
-		nghttp2-dev \
-		# mod_session_crypto
-		openssl \
-		openssl-dev \
-		pcre-dev \
-		tar \
-		# mod_deflate
-		zlib-dev \
+		wget \
+		zlib1g-dev \
+		ibapache2-mod-jk \
 	; \
+	rm -r /var/lib/apt/lists/*; \
 	\
 	ddist() { \
 		local f="$1"; shift; \
@@ -89,7 +88,7 @@ RUN set -eux; \
 	for key in \
 # gpg: key 791485A8: public key "Jim Jagielski (Release Signing Key) <jim@apache.org>" imported
 		A93D62ECC3C8EA12DB220EC934EA76E6791485A8 \
-# gpg: key 995E35221AD84DFF: public key "Daniel Ruggeri (https://home.apache.org/~druggeri/) <druggeri@apache.org>" imported
+# gpg: key 995E35221AD84DFF: public key "Daniel Ruggeri (http://home.apache.org/~druggeri/) <druggeri@apache.org>" imported
 		B9E8213AEFB861AF35A41F2C995E35221AD84DFF \
 	; do \
 		gpg --batch --keyserver ha.pool.sks-keyservers.net --recv-keys "$key"; \
@@ -121,7 +120,6 @@ RUN set -eux; \
 		--prefix="$HTTPD_PREFIX" \
 		--enable-mods-shared=reallyall \
 		--enable-mpms-shared=all \
-		--with-apxs=/usr/local/apache2/bin/apxs \
 	; \
 	make -j "$(nproc)"; \
 	make install; \
@@ -137,21 +135,25 @@ RUN set -eux; \
 		"$HTTPD_PREFIX/conf/extra/httpd-ssl.conf" \
 	; \
 	\
-	runDeps="$runDeps $( \
-		scanelf --needed --nobanner --format '%n#p' --recursive /usr/local \
-			| tr ',' '\n' \
-			| sort -u \
-			| awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
-	)"; \
-	apk add --virtual .httpd-rundeps $runDeps; \
-	apk del .build-deps; \
+# reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
+	apt-mark auto '.*' > /dev/null; \
+	[ -z "$savedAptMark" ] || apt-mark manual $savedAptMark; \
+	find /usr/local -type f -executable -exec ldd '{}' ';' \
+		| awk '/=>/ { print $(NF-1) }' \
+		| sort -u \
+		| xargs -r dpkg-query --search \
+		| cut -d: -f1 \
+		| sort -u \
+		| xargs -r apt-mark manual \
+	; \
+	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
+	\
+	cp /var/lib/apache2/mod_jk.so /usr/local/apache2/modules
 	\
 # smoke test
 	httpd -v
 
 COPY httpd-foreground /usr/local/bin/
-COPY mod_jk.so /usr/local/apache2/modules/
-RUN chmod +x /usr/local/apache2/modules/mod_jk.so
+
 EXPOSE 80
 CMD ["httpd-foreground"]
-
