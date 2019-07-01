@@ -64,8 +64,6 @@ RUN set -eux; \
 		tar \
 		# mod_deflate
 		zlib-dev \
-		httpd-devel \
-		libapache2-mod-jk \
 	; \
 	\
 	ddist() { \
@@ -147,12 +145,11 @@ RUN set -eux; \
 	apk add --virtual .httpd-rundeps $runDeps; \
 	apk del .build-deps; \
 	\
-	cp /var/lib/apache2/mod_jk.so /usr/local/apache2/modules; \
-	\
 # smoke test
 	httpd -v
 
 COPY httpd-foreground /usr/local/bin/
+COPY mod_jk.so /usr/local/apache2/modules/
 
 EXPOSE 80
 CMD ["httpd-foreground"]
