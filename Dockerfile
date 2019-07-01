@@ -64,6 +64,7 @@ RUN set -eux; \
 		tar \
 		# mod_deflate
 		zlib-dev \
+		httpd-devel \
 		libapache2-mod-jk \
 	; \
 	\
