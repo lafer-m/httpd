@@ -21,6 +21,7 @@ ENV HTTPD_SHA256 b4ca9d05773aa59b54d66cd8f4744b945289f084d3be17d7981d1783a5decfa
 # https://httpd.apache.org/security/vulnerabilities_24.html
 ENV HTTPD_PATCHES=""
 ENV CFLAGS="-DBIG_SECURITY_HOLE"
+ENV JK_VERSION="1.2.46"
 
 ENV APACHE_DIST_URLS \
 # https://issues.apache.org/jira/browse/INFRA-8753?focusedCommentId=14735394#comment-14735394
@@ -167,7 +168,7 @@ RUN apk --no-cache upgrade && \
     \
     cd /tmp/tomcat-connectors-"${JK_VERSION}"-src/native && \
     ./buildconf.sh && \
-    ./configure --with-apxs=/usr/local/apache2/apxs && \
+    ./configure --with-apxs=/usr/local/apache2/bin/apxs && \
 # https://github.com/firesurfing/alpine-mod_jk/blob/master/README.md
     echo "#include <sys/socket.h>" > /usr/include/sys/socketvar.h && \
     make && \
