@@ -121,6 +121,7 @@ RUN set -eux; \
 		--prefix="$HTTPD_PREFIX" \
 		--enable-mods-shared=reallyall \
 		--enable-mpms-shared=all \
+		--with-apxs=/usr/local/apache2/bin/apxs \
 	; \
 	make -j "$(nproc)"; \
 	make install; \
