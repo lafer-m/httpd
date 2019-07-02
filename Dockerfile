@@ -21,7 +21,7 @@ ENV HTTPD_SHA256 b4ca9d05773aa59b54d66cd8f4744b945289f084d3be17d7981d1783a5decfa
 # https://httpd.apache.org/security/vulnerabilities_24.html
 ENV HTTPD_PATCHES=""
 ENV CFLAGS="-DBIG_SECURITY_HOLE"
-ENV JK_VERSION="1.2.46"
+ENV JK_VERSION="1.2.40"
 
 ENV APACHE_DIST_URLS \
 # https://issues.apache.org/jira/browse/INFRA-8753?focusedCommentId=14735394#comment-14735394
@@ -30,35 +30,6 @@ ENV APACHE_DIST_URLS \
 	https://www-us.apache.org/dist/ \
 	https://www.apache.org/dist/ \
 	https://archive.apache.org/dist/
-
-RUN mkdir -p /usr/local/apache2/bin/
-
-RUN apk --no-cache \
-        add bind-tools && \
-    \
-    apk --no-cache \
-        add --virtual .build-deps \
-            autoconf \
-            automake \
-            gcc \
-            g++ \
-            libtool \
-            make && \
-    \
-    wget http://mirror.nbtelecom.com.br/apache/tomcat/tomcat-connectors/jk/tomcat-connectors-"${JK_VERSION}"-src.tar.gz \
-        -O /tmp/tc.tar.gz && \
-    tar zxf /tmp/tc.tar.gz -C /tmp/ && \
-    \
-    cd /tmp/tomcat-connectors-"${JK_VERSION}"-src/native && \
-    ./buildconf.sh && \
-    ./configure --with-apxs=/usr/local/apache2/bin/apxs && \
-# https://github.com/firesurfing/alpine-mod_jk/blob/master/README.md
-    echo "#include <sys/socket.h>" > /usr/include/sys/socketvar.h && \
-    make && \
-    mv apache-2.0/mod_jk.so /usr/local/apache2/modules && \
-    cd / && \
-    \
-    rm -rf /tmp/tomcat-connectors-"${JK_VERSION}" /tmp/tc.tar.gz
 
 # see https://httpd.apache.org/docs/2.4/install.html#requirements
 RUN set -eux; \
@@ -177,6 +148,33 @@ RUN set -eux; \
 	\
 # smoke test
 	httpd -v
+
+RUN apk --no-cache \
+        add bind-tools && \
+    \
+    apk --no-cache \
+        add --virtual .build-deps \
+            autoconf \
+            automake \
+            gcc \
+            g++ \
+            libtool \
+            make && \
+    \
+    wget http://mirror.nbtelecom.com.br/apache/tomcat/tomcat-connectors/jk/tomcat-connectors-"${JK_VERSION}"-src.tar.gz \
+        -O /tmp/tc.tar.gz && \
+    tar zxf /tmp/tc.tar.gz -C /tmp/ && \
+    \
+    cd /tmp/tomcat-connectors-"${JK_VERSION}"-src/native && \
+    ./buildconf.sh && \
+    ./configure --with-apxs=/usr/local/apache2/bin/apxs && \
+# https://github.com/firesurfing/alpine-mod_jk/blob/master/README.md
+    echo "#include <sys/socket.h>" > /usr/include/sys/socketvar.h && \
+    make && \
+    mv apache-2.0/mod_jk.so /usr/local/apache2/modules && \
+    cd / && \
+    \
+    rm -rf /tmp/tomcat-connectors-"${JK_VERSION}" /tmp/tc.tar.gz
 
 COPY httpd-foreground /usr/local/bin/
 
