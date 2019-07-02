@@ -31,6 +31,8 @@ ENV APACHE_DIST_URLS \
 	https://www.apache.org/dist/ \
 	https://archive.apache.org/dist/
 
+RUN mkdir -p /usr/local/apache2/bin/
+
 RUN apk --no-cache \
         add bind-tools && \
     \
