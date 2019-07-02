@@ -149,8 +149,7 @@ RUN set -eux; \
 # smoke test
 	httpd -v
 
-RUN apk --no-cache upgrade && \
-    apk --no-cache \
+RUN apk --no-cache \
         add bind-tools && \
     \
     apk --no-cache \
