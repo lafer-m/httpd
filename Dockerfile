@@ -63,6 +63,7 @@ RUN set -eux; \
 		make \
 		wget \
 		zlib1g-dev \
+		libapache2-mod-jk \
 	; \
 	rm -r /var/lib/apt/lists/*; \
 	\
@@ -135,6 +136,7 @@ RUN set -eux; \
 		"$HTTPD_PREFIX/conf/httpd.conf" \
 		"$HTTPD_PREFIX/conf/extra/httpd-ssl.conf" \
 	; \
+	cp /var/lib/apache2/mod_jk.so /usr/local/apache2/modules; \
 	\
 # reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
 	apt-mark auto '.*' > /dev/null; \
@@ -151,30 +153,6 @@ RUN set -eux; \
 	\
 # smoke test
 	httpd -v
-
-RUN apt-get install -y --no-install-recommends \
-	    bind-tools \
-            autoconf \
-            automake \
-            gcc \
-            g++ \
-            libtool \
-            make && \
-    \
-    wget http://mirror.nbtelecom.com.br/apache/tomcat/tomcat-connectors/jk/tomcat-connectors-"${JK_VERSION}"-src.tar.gz \
-        -O /tmp/tc.tar.gz && \
-    tar zxf /tmp/tc.tar.gz -C /tmp/ && \
-    \
-    cd /tmp/tomcat-connectors-"${JK_VERSION}"-src/native && \
-    ./buildconf.sh && \
-    ./configure --with-apxs=/usr/local/apache2/bin/apxs && \
-# https://github.com/firesurfing/alpine-mod_jk/blob/master/README.md
-    echo "#include <sys/socket.h>" > /usr/include/sys/socketvar.h && \
-    make && \
-    mv apache-2.0/mod_jk.so /usr/local/apache2/modules && \
-    cd / && \
-    \
-    rm -rf /tmp/tomcat-connectors-"${JK_VERSION}" /tmp/tc.tar.gz
 
 COPY httpd-foreground /usr/local/bin/
 
