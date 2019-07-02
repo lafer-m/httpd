@@ -136,7 +136,7 @@ RUN set -eux; \
 		"$HTTPD_PREFIX/conf/httpd.conf" \
 		"$HTTPD_PREFIX/conf/extra/httpd-ssl.conf" \
 	; \
-	cp /var/lib/apache2/mod_jk.so /usr/local/apache2/modules; \
+# cp /var/lib/apache2/mod_jk.so /usr/local/apache2/modules; \
 	\
 # reset apt-mark's "manual" list so that "purge --auto-remove" will remove all build dependencies
 	apt-mark auto '.*' > /dev/null; \
